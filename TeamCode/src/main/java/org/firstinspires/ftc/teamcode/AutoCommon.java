@@ -153,18 +153,42 @@ public class AutoCommon extends LinearOpMode {
     }
 
     class YellowBlobDetectionPipeline extends OpenCvPipeline {
+        Mat yellowMask;
+        List<MatOfPoint> contours;
+        Mat hierarchy;
+        MatOfPoint largestContour;
+        Mat hsvFrame;
+        Mat kernel;
+        private Mat preprocessFrame(Mat frame) {
+            hsvFrame = new Mat();
+            Imgproc.cvtColor(frame, hsvFrame, Imgproc.COLOR_BGR2HSV);
+
+            Scalar lowerYellow = new Scalar(100, 100, 100);
+            Scalar upperYellow = new Scalar(180, 255, 255);
+
+
+            yellowMask = new Mat();
+            Core.inRange(hsvFrame, lowerYellow, upperYellow, yellowMask);
+
+            kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
+            Imgproc.morphologyEx(yellowMask, yellowMask, Imgproc.MORPH_OPEN, kernel);
+            Imgproc.morphologyEx(yellowMask, yellowMask, Imgproc.MORPH_CLOSE, kernel);
+
+            return yellowMask;
+        }
+
         @Override
         public Mat processFrame(Mat input) {
             // Preprocess the frame to detect yellow regions
-            Mat yellowMask = preprocessFrame(input);
+            yellowMask = preprocessFrame(input);
 
             // Find contours of the detected yellow regions
-            List<MatOfPoint> contours = new ArrayList<>();
-            Mat hierarchy = new Mat();
+            contours = new ArrayList<>();
+            hierarchy = new Mat();
             Imgproc.findContours(yellowMask, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 
             // Find the largest yellow contour (blob)
-            MatOfPoint largestContour = findLargestContour(contours);
+            largestContour = findLargestContour(contours);
 
             if (largestContour != null) {
                 // Draw a red outline around the largest detected object
@@ -192,23 +216,6 @@ public class AutoCommon extends LinearOpMode {
             return input;
         }
 
-        private Mat preprocessFrame(Mat frame) {
-            Mat hsvFrame = new Mat();
-            Imgproc.cvtColor(frame, hsvFrame, Imgproc.COLOR_BGR2HSV);
-
-            Scalar lowerYellow = new Scalar(100, 100, 100);
-            Scalar upperYellow = new Scalar(180, 255, 255);
-
-
-            Mat yellowMask = new Mat();
-            Core.inRange(hsvFrame, lowerYellow, upperYellow, yellowMask);
-
-            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
-            Imgproc.morphologyEx(yellowMask, yellowMask, Imgproc.MORPH_OPEN, kernel);
-            Imgproc.morphologyEx(yellowMask, yellowMask, Imgproc.MORPH_CLOSE, kernel);
-
-            return yellowMask;
-        }
 
         private MatOfPoint findLargestContour(List<MatOfPoint> contours) {
             double maxArea = 0;
